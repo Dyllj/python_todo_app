@@ -1,0 +1,255 @@
+/* Reset and base styles */
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f6fa;
+  color: #2f3640;
+}
+
+.container {
+  width: 80%;
+  margin: 50px auto;
+  background: #ffffff;
+  padding: 30px 40px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Headings */
+h2, h3 {
+  color: #2d3436;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* Form for new task */
+form[method="POST"] {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+input[type="text"] {
+  width: 70%;
+  padding: 10px;
+  border: 1px solid #dfe6e9;
+  border-radius: 8px;
+  font-size: 1rem;
+  margin-right: 10px;
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #007BFF; /* Blue */
+  color: white;
+  border: none;
+  border-radius: 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+  transition: background 0.3s, color 0.3s, border 0.3s, transform 0.2s, box-shadow 0.2s;
+}
+
+button:hover,
+button:focus {
+  background-color: white;
+  color: black;
+  border: 1.5px solid #007BFF;
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 4px 16px rgba(0, 123, 255, 0.3);
+  outline: none;
+}
+
+
+/* Task list */
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+li {
+  padding: 10px 0;
+  border-bottom: 1px solid #ecf0f1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Task actions */
+li span {
+  display: inline-block;
+  margin-left: 10px;
+}
+
+a {
+  text-decoration: none;
+  color: #636e72;
+  margin: 0 5px;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #0984e3;
+}
+
+/* Checkbox styling */
+input[type="checkbox"] {
+  transform: scale(1.2);
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+/* Completed task style */
+.completed {
+  text-decoration: line-through;
+  color: #b2bec3;
+}
+
+/* Logout link */
+.logout-link {
+  color: #d63031;
+  text-decoration: none;
+  font-weight: bold;
+  margin-left: 10px;
+}
+
+.logout-link:hover {
+  color: #e17055;
+}
+
+/* Tasks wrapper */
+.tasks-wrapper {
+  display: flex;
+  gap: 32px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.task-list {
+  flex: 1;
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  min-width: 220px;
+}
+
+.task-list h3 {
+  text-align: center;
+  margin-top: 0;
+}
+
+.task-title {
+  font-weight: 500;
+  display: block;
+}
+
+.task-desc {
+  color: #888;
+  font-size: 0.95em;
+  margin-top: 2px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+}
+
+/* Delete link styles */
+a.delete-link {
+  color: #888;
+  transition: color 0.2s;
+}
+
+a.delete-link:hover {
+  color: #e17055;
+}
+
+/* Delete and Logout button wrapper */
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+  gap: 10px;
+}
+
+.action-buttons form,
+.action-buttons a {
+  display: inline-block;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .container {
+    padding: 20px;
+  }
+
+  input[type="text"] {
+    width: 60%;
+  }
+
+  button {
+    padding: 10px 12px;
+  }
+
+  .container a button {
+    width: 100%;
+  }
+
+  .tasks-wrapper {
+    flex-direction: column;
+  }
+}
+
+/* Delete Account Button */
+.delete-account-button {
+  padding: 10px 20px;
+  background-color: #e74c3c; /* Red */
+  color: white;
+  border: none;
+  border-radius: 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.2);
+  transition: background 0.3s, color 0.3s, border 0.3s, transform 0.2s, box-shadow 0.2s;
+}
+
+.delete-account-button:hover,
+.delete-account-button:focus {
+  background-color: white;
+  color: black;
+  border: 1.5px solid #e74c3c;
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 4px 16px rgba(231, 76, 60, 0.3);
+  outline: none;
+}
+
+/* Logout Link as Button Style */
+.logout-link {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: #f1c40f; /* Yellow */
+  color: black;
+  border: none;
+  border-radius: 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(241, 196, 15, 0.2);
+  transition: background 0.3s, color 0.3s, border 0.3s, transform 0.2s, box-shadow 0.2s;
+}
+
+.logout-link:hover,
+.logout-link:focus {
+  background-color: white;
+  color: black;
+  border: 1.5px solid #f1c40f;
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 4px 16px rgba(241, 196, 15, 0.3);
+  outline: none;
+}

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h2>Welcome, {{ current_user.name }}</h2>
+
+    <!-- New Task Form -->
+    <form method="POST" class="task-form">
+      <input type="text" name="task" placeholder="New Task Title" required>
+      <input type="text" name="description" placeholder="Description (optional)">
+      <button type="submit">Add</button>
+    </form>
+
+    <div class="tasks-wrapper">
+
+      <!-- Active Tasks -->
+      <div class="task-list">
+        <h3>Active Tasks</h3>
+        {% if tasks|selectattr('is_done', 'equalto', False)|list %}
+          <ul>
+            {% for task in tasks if not task.is_done %}
+              <li>
+                <div>
+                  <form method="POST" action="{{ url_for('complete', id=task.id) }}" style="display:inline;">
+                    <input type="checkbox" onchange="this.form.submit()">
+                  </form>
+                  <span class="task-title">{{ task.title }}</span>
+                  {% if task.description %}
+                    <span class="task-desc"> - {{ task.description }}</span>
+                  {% endif %}
+                </div>
+                <span class="task-actions">
+                  <a href="{{ url_for('delete', id=task.id) }}" class="delete-link">Delete</a>
+                </span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p>No active tasks.</p>
+        {% endif %}
+      </div>
+
+      <!-- Completed Tasks -->
+      <div class="task-list">
+        <h3>Completed Tasks</h3>
+        {% if tasks|selectattr('is_done', 'equalto', True)|list %}
+          <ul>
+            {% for task in tasks if task.is_done %}
+              <li>
+                <div>
+                  <form method="POST" action="{{ url_for('complete', id=task.id) }}" style="display:inline;">
+                    <input type="checkbox" checked onchange="this.form.submit()">
+                  </form>
+                  <span class="task-title completed">{{ task.title }}</span>
+                  {% if task.description %}
+                    <span class="task-desc"> - {{ task.description }}</span>
+                  {% endif %}
+                </div>
+                <span class="task-actions">
+                  <a href="{{ url_for('delete', id=task.id) }}" class="delete-link">Delete</a>
+                </span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p>No completed tasks.</p>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- Account Controls -->
+    <div class="account-controls">
+      <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+      <form action="{{ url_for('delete_account') }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete your account? This action cannot be undone.');">
+        <button type="submit" class="delete-account-button">Delete Account</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
