@@ -69,7 +69,7 @@ def login():
     redirect_uri = url_for('auth_callback', _external=True)  # ✅ Dynamically generate full redirect URI
     return google.authorize_redirect(redirect_uri, nonce=nonce)
 
-@app.route('/auth/callback')
+@app.route('/callback')
 def auth_callback():
     try:
         token = google.authorize_access_token()
