@@ -4,14 +4,15 @@ from flask_login import LoginManager, login_user, login_required, logout_user, U
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 import os
+import secrets
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
-# Database config
+# SQLAlchemy database config
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -33,7 +34,7 @@ class ToDo(db.Model):
     description = db.Column(db.Text)
     is_done = db.Column(db.Boolean, default=False)
 
-# Login manager
+# Flask-Login manager setup
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'home'
@@ -42,7 +43,7 @@ login_manager.login_view = 'home'
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# OAuth setup
+# Google OAuth setup with Authlib
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
@@ -56,31 +57,30 @@ google = oauth.register(
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration'
 )
 
-# Routes
+# Home route renders login page
 @app.route('/')
 def home():
     return render_template('login.html')
 
+# Google login route
 @app.route('/login')
 def login():
-    # ✅ Removed nonce for simplicity and compatibility
+    nonce = secrets.token_urlsafe(16)  # Generate and store a secure nonce
+    session['nonce'] = nonce
     redirect_uri = url_for('auth_callback', _external=True)
-    return google.authorize_redirect(redirect_uri)
+    return google.authorize_redirect(redirect_uri, nonce=nonce)  # Nonce included
 
+# OAuth callback route
 @app.route('/callback')
 def auth_callback():
     try:
-        token = google.authorize_access_token()  # Exchange code for token
+        token = google.authorize_access_token()  # Exchange code for access token
+        userinfo = google.parse_id_token(token, nonce=session.get('nonce'))  # Validate nonce here
 
-        # ✅ Replaced parse_id_token with userinfo_endpoint
-        resp = google.get('userinfo')  # Get user info from userinfo endpoint
-        userinfo = resp.json()         # Parse response as JSON
+        if not userinfo:
+            return "Failed to retrieve user info", 400
 
-        # ✅ Sanity check for email presence
-        if not userinfo or 'email' not in userinfo:
-            return "Failed to fetch user info.", 400
-
-        # ✅ Create or fetch user from DB
+        # Check if user exists or create a new one
         user = User.query.filter_by(email=userinfo['email']).first()
         if not user:
             user = User(
@@ -97,6 +97,7 @@ def auth_callback():
     except Exception as e:
         return f"OAuth callback error: {str(e)}", 500
 
+# Dashboard view: Add and show ToDo items
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
 def dashboard():
@@ -111,6 +112,7 @@ def dashboard():
     tasks = ToDo.query.filter_by(user_id=current_user.id).all()
     return render_template('dashboard.html', tasks=tasks)
 
+# Delete specific task
 @app.route('/delete/<int:id>')
 @login_required
 def delete(id):
@@ -120,12 +122,7 @@ def delete(id):
         db.session.commit()
     return redirect(url_for('dashboard'))
 
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('home'))
-
+# Mark task as complete/incomplete
 @app.route('/complete/<int:id>', methods=['POST'])
 @login_required
 def complete(id):
@@ -135,6 +132,14 @@ def complete(id):
         db.session.commit()
     return redirect(url_for('dashboard'))
 
+# Log out the current user
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('home'))
+
+# Delete user account and all their tasks
 @app.route('/delete_account', methods=['POST'])
 @login_required
 def delete_account():
@@ -145,7 +150,7 @@ def delete_account():
     logout_user()
     return redirect(url_for('home'))
 
-# Run app
+# Start the app and create all tables if not existing
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
