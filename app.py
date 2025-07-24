@@ -66,7 +66,7 @@ def home():
 def login():
     nonce = secrets.token_urlsafe(16)
     session['nonce'] = nonce
-    redirect_uri = os.getenv("REDIRECT_URI")  # ✅ Use value from .env
+    redirect_uri = url_for('auth_callback', _external=True)  # ✅ Dynamically generate full redirect URI
     return google.authorize_redirect(redirect_uri, nonce=nonce)
 
 @app.route('/auth/callback')
@@ -133,14 +133,9 @@ def complete(id):
 @login_required
 def delete_account():
     user = User.query.get(current_user.id)
-
-    # Delete all tasks linked to the user first
     ToDo.query.filter_by(user_id=user.id).delete()
-
-    # Then delete the user
     db.session.delete(user)
     db.session.commit()
-
     logout_user()
     return redirect(url_for('home'))
 
