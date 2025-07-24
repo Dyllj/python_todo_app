@@ -1,31 +1,32 @@
 import os
-from flask import Flask, redirect, url_for, request, render_template, flash
+from flask import Flask, redirect, url_for, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user, UserMixin
 from flask_dance.contrib.google import make_google_blueprint, google
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
-# Database setup
+# Database config
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
-# Login manager
+# Login manager setup
 login_manager = LoginManager()
 login_manager.login_view = "google.login"
 login_manager.init_app(app)
 
-# OAuth2 setup
+# OAuth2 Google blueprint
 google_bp = make_google_blueprint(
     client_id=os.getenv("API_KEY"),
     client_secret=os.getenv("API_SECRET"),
-    redirect_to="google_callback",
-    scope=["profile", "email"]
+    scope=["profile", "email"],
+    redirect_url="/login/google/authorized"  # Default, can be omitted
 )
 app.register_blueprint(google_bp, url_prefix="/login")
 
@@ -60,8 +61,8 @@ def home():
     todos = Todo.query.filter_by(user_id=current_user.id).all()
     return render_template("dashboard.html", todos=todos)
 
-@app.route("/callback")
-def google_callback():
+@app.route("/login/google/authorized")
+def google_authorized():
     if not google.authorized:
         return redirect(url_for("google.login"))
     resp = google.get("/oauth2/v2/userinfo")
@@ -106,8 +107,9 @@ def logout():
     logout_user()
     return redirect(url_for("home"))
 
-# Create tables on first run
+# Create tables and run app
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
