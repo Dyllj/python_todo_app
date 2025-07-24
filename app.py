@@ -1,158 +1,113 @@
-from flask import Flask, redirect, url_for, session, render_template, request
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, login_user, login_required, logout_user, UserMixin, current_user
-from authlib.integrations.flask_client import OAuth
-from dotenv import load_dotenv
 import os
-import secrets
+from flask import Flask, redirect, url_for, request, render_template, flash
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user, UserMixin
+from flask_dance.contrib.google import make_google_blueprint, google
+from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
-# SQLAlchemy database config
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Database setup
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
+
+# Login manager
+login_manager = LoginManager()
+login_manager.login_view = "google.login"
+login_manager.init_app(app)
+
+# OAuth2 setup
+google_bp = make_google_blueprint(
+    client_id=os.getenv("API_KEY"),
+    client_secret=os.getenv("API_SECRET"),
+    redirect_to="google_callback",
+    scope=["profile", "email"]
+)
+app.register_blueprint(google_bp, url_prefix="/login")
 
 # Models
 class User(UserMixin, db.Model):
-    __tablename__ = 'users'
+    __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     google_id = db.Column(db.String(255), unique=True, nullable=False)
     name = db.Column(db.String(255))
     email = db.Column(db.String(255), unique=True, nullable=False)
-    created_at = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+    created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
+    todos = db.relationship("Todo", backref="owner", cascade="all, delete", lazy=True)
 
-class ToDo(db.Model):
-    __tablename__ = 'todos'
+class Todo(db.Model):
+    __tablename__ = "todos"
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = db.Column(db.String(255), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     description = db.Column(db.Text)
     is_done = db.Column(db.Boolean, default=False)
-
-# Flask-Login manager setup
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'home'
+    created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Google OAuth setup with Authlib
-oauth = OAuth(app)
-google = oauth.register(
-    name='google',
-    client_id=os.getenv("API_KEY"),
-    client_secret=os.getenv("API_SECRET"),
-    access_token_url='https://oauth2.googleapis.com/token',
-    authorize_url='https://accounts.google.com/o/oauth2/v2/auth',
-    api_base_url='https://www.googleapis.com/oauth2/v1/',
-    userinfo_endpoint='https://openidconnect.googleapis.com/v1/userinfo',
-    client_kwargs={'scope': 'openid email profile'},
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration'
-)
-
-# Home route renders login page
-@app.route('/')
+# Routes
+@app.route("/")
 def home():
-    return render_template('login.html')
+    if not current_user.is_authenticated:
+        return redirect(url_for("google.login"))
+    todos = Todo.query.filter_by(user_id=current_user.id).all()
+    return render_template("dashboard.html", todos=todos)
 
-# Google login route
-@app.route('/login')
-def login():
-    nonce = secrets.token_urlsafe(16)  # Generate and store a secure nonce
-    session['nonce'] = nonce
-    redirect_uri = url_for('auth_callback', _external=True)
-    return google.authorize_redirect(redirect_uri, nonce=nonce)  # Nonce included
+@app.route("/callback")
+def google_callback():
+    if not google.authorized:
+        return redirect(url_for("google.login"))
+    resp = google.get("/oauth2/v2/userinfo")
+    if not resp.ok:
+        return "Failed to fetch user info.", 400
+    info = resp.json()
 
-# OAuth callback route
-@app.route('/callback')
-def auth_callback():
-    try:
-        token = google.authorize_access_token()  # Exchange code for access token
-        userinfo = google.parse_id_token(token, nonce=session.get('nonce'))  # Validate nonce here
-
-        if not userinfo:
-            return "Failed to retrieve user info", 400
-
-        # Check if user exists or create a new one
-        user = User.query.filter_by(email=userinfo['email']).first()
-        if not user:
-            user = User(
-                google_id=userinfo['sub'],
-                name=userinfo['name'],
-                email=userinfo['email']
-            )
-            db.session.add(user)
-            db.session.commit()
-
-        login_user(user)
-        return redirect(url_for('dashboard'))
-
-    except Exception as e:
-        return f"OAuth callback error: {str(e)}", 500
-
-# Dashboard view: Add and show ToDo items
-@app.route('/dashboard', methods=['GET', 'POST'])
-@login_required
-def dashboard():
-    if request.method == 'POST':
-        title = request.form.get('task')
-        description = request.form.get('description')
-        if title:
-            new_task = ToDo(title=title, description=description, user_id=current_user.id)
-            db.session.add(new_task)
-            db.session.commit()
-        return redirect(url_for('dashboard'))
-    tasks = ToDo.query.filter_by(user_id=current_user.id).all()
-    return render_template('dashboard.html', tasks=tasks)
-
-# Delete specific task
-@app.route('/delete/<int:id>')
-@login_required
-def delete(id):
-    task = ToDo.query.get_or_404(id)
-    if task.user_id == current_user.id:
-        db.session.delete(task)
+    user = User.query.filter_by(google_id=info["id"]).first()
+    if not user:
+        user = User(
+            google_id=info["id"],
+            name=info.get("name"),
+            email=info.get("email")
+        )
+        db.session.add(user)
         db.session.commit()
-    return redirect(url_for('dashboard'))
+    login_user(user)
+    return redirect(url_for("home"))
 
-# Mark task as complete/incomplete
-@app.route('/complete/<int:id>', methods=['POST'])
+@app.route("/add", methods=["POST"])
 @login_required
-def complete(id):
-    task = ToDo.query.get_or_404(id)
-    if task.user_id == current_user.id:
-        task.is_done = not task.is_done
+def add():
+    title = request.form.get("title")
+    description = request.form.get("description")
+    if title:
+        todo = Todo(title=title, description=description, user_id=current_user.id)
+        db.session.add(todo)
         db.session.commit()
-    return redirect(url_for('dashboard'))
+    return redirect(url_for("home"))
 
-# Log out the current user
-@app.route('/logout')
+@app.route("/done/<int:todo_id>")
+@login_required
+def mark_done(todo_id):
+    todo = Todo.query.filter_by(id=todo_id, user_id=current_user.id).first_or_404()
+    todo.is_done = not todo.is_done
+    db.session.commit()
+    return redirect(url_for("home"))
+
+@app.route("/logout")
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('home'))
+    return redirect(url_for("home"))
 
-# Delete user account and all their tasks
-@app.route('/delete_account', methods=['POST'])
-@login_required
-def delete_account():
-    user = User.query.get(current_user.id)
-    ToDo.query.filter_by(user_id=user.id).delete()
-    db.session.delete(user)
-    db.session.commit()
-    logout_user()
-    return redirect(url_for('home'))
-
-# Start the app and create all tables if not existing
-if __name__ == '__main__':
+# Create tables on first run
+if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
