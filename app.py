@@ -66,7 +66,7 @@ def home():
 def login():
     nonce = secrets.token_urlsafe(16)
     session['nonce'] = nonce
-    redirect_uri = url_for('auth_callback', _external=True)  # ✅ Dynamically generate full redirect URI
+    redirect_uri = url_for('auth_callback', _external=True)
     return google.authorize_redirect(redirect_uri, nonce=nonce)
 
 @app.route('/callback')
@@ -139,8 +139,9 @@ def delete_account():
     logout_user()
     return redirect(url_for('home'))
 
-# Run the app
+# Final updated app run logic
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
