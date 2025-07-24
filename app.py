@@ -4,7 +4,6 @@ from flask_login import LoginManager, login_user, login_required, logout_user, U
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 import os
-import secrets
 
 # Load environment variables
 load_dotenv()
@@ -64,17 +63,24 @@ def home():
 
 @app.route('/login')
 def login():
-    nonce = secrets.token_urlsafe(16)
-    session['nonce'] = nonce
+    # ✅ Removed nonce for simplicity and compatibility
     redirect_uri = url_for('auth_callback', _external=True)
-    return google.authorize_redirect(redirect_uri, nonce=nonce)
+    return google.authorize_redirect(redirect_uri)
 
 @app.route('/callback')
 def auth_callback():
     try:
-        token = google.authorize_access_token()
-        userinfo = google.parse_id_token(token, nonce=session.get('nonce'))
+        token = google.authorize_access_token()  # Exchange code for token
 
+        # ✅ Replaced parse_id_token with userinfo_endpoint
+        resp = google.get('userinfo')  # Get user info from userinfo endpoint
+        userinfo = resp.json()         # Parse response as JSON
+
+        # ✅ Sanity check for email presence
+        if not userinfo or 'email' not in userinfo:
+            return "Failed to fetch user info.", 400
+
+        # ✅ Create or fetch user from DB
         user = User.query.filter_by(email=userinfo['email']).first()
         if not user:
             user = User(
@@ -139,7 +145,7 @@ def delete_account():
     logout_user()
     return redirect(url_for('home'))
 
-# Final updated app run logic
+# Run app
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
