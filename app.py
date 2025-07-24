@@ -66,7 +66,7 @@ def home():
 def login():
     nonce = secrets.token_urlsafe(16)
     session['nonce'] = nonce
-    redirect_uri = url_for('auth_callback', _external=True)
+    redirect_uri = os.getenv("REDIRECT_URI")  # ✅ Use value from .env
     return google.authorize_redirect(redirect_uri, nonce=nonce)
 
 @app.route('/auth/callback')
